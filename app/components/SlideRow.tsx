@@ -9,6 +9,10 @@ interface SlideRowProps {
   html?: string;
   mood: string;
   moods: readonly string[];
+  isFirstSlide: boolean;
+  masterStyle: string | null;
+  syncWithMaster: boolean;
+  onToggleSync: (slideId: string) => void;
   onMoodChange: (slideId: string, mood: string) => void;
   onHtmlGenerated: (slideId: string, html: string) => void;
 }
@@ -18,6 +22,10 @@ export default function SlideRow({
   html,
   mood,
   moods,
+  isFirstSlide,
+  masterStyle,
+  syncWithMaster,
+  onToggleSync,
   onMoodChange,
   onHtmlGenerated,
 }: SlideRowProps) {
@@ -31,10 +39,19 @@ export default function SlideRow({
     try {
       const base64 = await canvasRef.current.exportAsBase64();
 
+      const designSystemContext =
+        !isFirstSlide && syncWithMaster && masterStyle
+          ? masterStyle
+          : undefined;
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mood }),
+        body: JSON.stringify({
+          imageBase64: base64,
+          mood,
+          designSystemContext,
+        }),
       });
 
       const data = await res.json();
@@ -52,9 +69,9 @@ export default function SlideRow({
   };
 
   return (
-    <div className="w-full flex items-start gap-4">
+    <div className="w-full shrink-0 flex items-start gap-4 overflow-hidden">
       {/* Canvas */}
-      <div className="flex-1 aspect-video rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex-1 min-w-0 aspect-video rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden isolate z-10">
         <CanvasPanel ref={canvasRef} slideId={id} />
       </div>
 
@@ -77,6 +94,23 @@ export default function SlideRow({
           ))}
         </div>
 
+        {/* Sync Toggle (non-first slides only) */}
+        {!isFirstSlide && (
+          <>
+            <div className="w-8 border-t border-gray-200" />
+            <button
+              onClick={() => onToggleSync(id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                syncWithMaster
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-white border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {syncWithMaster ? "🔗 Synced" : "🔓 Independent"}
+            </button>
+          </>
+        )}
+
         {/* Divider */}
         <div className="w-8 border-t border-gray-200" />
 
@@ -94,8 +128,8 @@ export default function SlideRow({
       </div>
 
       {/* Preview */}
-      <div className="flex-1 aspect-video rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <PreviewPanel html={html} />
+      <div className="flex-1 min-w-0 isolate">
+        <PreviewPanel slideId={id} html={html} isGenerating={isGenerating} onHtmlUpdate={onHtmlGenerated} />
       </div>
     </div>
   );

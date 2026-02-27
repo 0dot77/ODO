@@ -1,47 +1,32 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import SlideRow from "./components/SlideRow";
 import PresentationView from "./components/PresentationView";
-
-interface Slide {
-  id: string;
-  html?: string;
-  mood: string;
-}
-
-const MOODS = ["Minimalist", "Neon Cyber", "Academic/Clean", "Brutalist"] as const;
+import { useSlides } from "./hooks/useSlides";
 
 export default function Home() {
-  const [slides, setSlides] = useState<Slide[]>([
-    { id: "slide-1", mood: "Minimalist" },
-  ]);
+  const {
+    slides,
+    masterStyle,
+    addSlide,
+    updateSlideMood,
+    updateSlideHtml,
+    toggleSyncWithMaster,
+    applyMasterStyleToAll,
+    MOODS,
+  } = useSlides();
 
-  const addSlide = () => {
-    setSlides((prev) => [
-      ...prev,
-      { id: `slide-${Date.now()}`, mood: "Minimalist" },
-    ]);
-  };
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  const updateSlideMood = useCallback((slideId: string, mood: string) => {
-    setSlides((prev) =>
-      prev.map((s) => (s.id === slideId ? { ...s, mood } : s))
-    );
-  }, []);
-
-  const updateSlideHtml = useCallback((slideId: string, html: string) => {
-    setSlides((prev) =>
-      prev.map((s) => (s.id === slideId ? { ...s, html } : s))
-    );
-  }, []);
+  const validSlides = slides.filter((s) => s.html).map((s) => s.html!);
+  const hasGenerated = validSlides.length > 0;
 
   const exportPresentation = () => {
-    const generated = slides.filter((s) => s.html);
-    if (generated.length === 0) return;
+    if (validSlides.length === 0) return;
 
-    const sections = generated
-      .map((s) => `<section>${s.html}</section>`)
+    const sections = validSlides
+      .map((h) => `<section>${h}</section>`)
       .join("\n");
 
     const doc = `<!DOCTYPE html>
@@ -62,11 +47,6 @@ ${sections}
     URL.revokeObjectURL(url);
   };
 
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const validSlides = slides.filter((s) => s.html).map((s) => s.html!);
-  const hasGenerated = validSlides.length > 0;
-
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-gray-100">
       {isPlaying && (
@@ -80,6 +60,13 @@ ${sections}
       <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-5 shrink-0">
         <span className="text-xl font-bold tracking-tight">ODO</span>
         <div className="flex items-center gap-2">
+          <button
+            onClick={applyMasterStyleToAll}
+            disabled={!masterStyle}
+            className="flex items-center gap-1.5 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            🎨 Apply Master Style to All
+          </button>
           <button
             onClick={() => setIsPlaying(true)}
             disabled={!hasGenerated}
@@ -98,14 +85,18 @@ ${sections}
       </header>
 
       {/* Slide List */}
-      <main className="flex-1 overflow-y-auto px-6 py-10 flex flex-col gap-24">
-        {slides.map((slide) => (
+      <main className="flex-1 overflow-y-auto px-6 py-10 flex flex-col gap-16">
+        {slides.map((slide, index) => (
           <SlideRow
             key={slide.id}
             id={slide.id}
             html={slide.html}
             mood={slide.mood}
             moods={MOODS}
+            isFirstSlide={index === 0}
+            masterStyle={masterStyle}
+            syncWithMaster={slide.syncWithMaster}
+            onToggleSync={toggleSyncWithMaster}
             onMoodChange={updateSlideMood}
             onHtmlGenerated={updateSlideHtml}
           />
